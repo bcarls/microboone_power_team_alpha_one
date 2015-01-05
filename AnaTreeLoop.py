@@ -39,9 +39,9 @@ def main(argv):
         return 0
 
     # Track module name
-    trackModule = "trackkalmanhitpandoraneutrino"
+    #trackModule = "trackkalmanhitpandoraneutrino"
     #trackModule = "trackkalmanhitpandora"
-    #trackModule = "trackkalmanhit"
+    trackModule = "trackkalmanhit"
 
     plt.rc('text', usetex=True)
     #plt.rc('font', family='serif')
@@ -82,7 +82,9 @@ def main(argv):
     hLongestTrackCosmicScore = []
     hTrackPIDA = []
     hLongestTrackPIDA = []
-   
+    hTrackOrigin = []
+    hLongestTrackOrigin = []
+
     # Loop over events 
     for ientry in xrange(nEntries):
         nb = c.GetEntry(ientry)
@@ -99,6 +101,7 @@ def main(argv):
         longestTrackThetaYZ = 0
         longestTrackCosmicScore = 0
         longestTrackPIDA = 0
+        longestTrackOrigin = -1
         foundLongestTrack = False
 
         hNumTracks.append(getattr(c,"ntracks_"+trackModule))
@@ -106,13 +109,70 @@ def main(argv):
         # Loop over tracks in event
         for kentry in xrange(getattr(c,"ntracks_"+trackModule)):
 
+            # What is the track's origin?
+            # Have to access this a little differently, the matrix a[i][j] translates to a[i*n_cols+j]
+            # We also have to check the origin over all three planes and take the one with the most votes
+            countsCosmic = 0
+            countsNeutrino = 0
+            countsUnknown = 0
+            trackOrigin = -1
+
+            if getattr(c,"trkorigin_"+trackModule)[kentry*3+0] == 1:
+                countsNeutrino+=1
+            elif getattr(c,"trkorigin_"+trackModule)[kentry*3+0] == 2:
+                countsCosmic+=1
+            elif  getattr(c,"trkorigin_"+trackModule)[kentry*3+0] != 1 and getattr(c,"trkorigin_"+trackModule)[kentry*3+0] != 2: 
+                countsUnknown+=1
+            
+            if getattr(c,"trkorigin_"+trackModule)[kentry*3+1] == 1:
+                countsNeutrino+=1
+            elif getattr(c,"trkorigin_"+trackModule)[kentry*3+1] == 2:
+                countsCosmic+=1
+            elif  getattr(c,"trkorigin_"+trackModule)[kentry*3+1] != 1 and getattr(c,"trkorigin_"+trackModule)[kentry*3+1] != 2: 
+                countsUnknown+=1
+            
+            if getattr(c,"trkorigin_"+trackModule)[kentry*3+2] == 1:
+                countsNeutrino+=1
+            elif getattr(c,"trkorigin_"+trackModule)[kentry*3+2] == 2:
+                countsCosmic+=1
+            elif  getattr(c,"trkorigin_"+trackModule)[kentry*3+2] != 1 and getattr(c,"trkorigin_"+trackModule)[kentry*3+2] != 2: 
+                countsUnknown+=1
+
+            if countsCosmic > countsNeutrino and countsCosmic > countsUnknown:
+                trackOrigin = 2
+
+            if countsNeutrino > countsCosmic and countsNeutrino > countsUnknown:
+                trackOrigin = 1
+
+
+
+            # Does the track have a cosmic tag?
+            hasCosmicTag = False
+            #if getattr(c,"trkcosmicscore_tagger_"+trackModule)[kentry] >= 0.5 or ( getattr(c,"trkcosmicscore_tagger_"+trackModule)[kentry] > 0.3 and  getattr(c,"trkcosmicscore_flashmatch_"+trackModule)[kentry]):
+            #if getattr(c,"trkcosmicscore_tagger_"+trackModule)[kentry] > 0.3:
+            if getattr(c,"trkcosmicscore_tagger_"+trackModule)[kentry] >= 0.5:
+                hasCosmicTag = True
+
             # Veto the track if it has a cosmic tag
-            if getattr(c,"trkcosmicscore_tagger_"+trackModule)[kentry] > 0:
-            #if getattr(c,"trkCosmicScore_"+trackModule)[kentry] > 0:
+            if hasCosmicTag:
                 continue
 
-            # Veto the track if it has a pida > 10
-            if getattr(c,"trkpidpida_"+trackModule)[kentry] > 10:
+
+            hTrackPhi.append(getattr(c,"trkphi_"+trackModule)[kentry])
+            hTrackTheta.append(getattr(c,"trktheta_"+trackModule)[kentry])
+            hTrackThetaXZ.append(getattr(c,"trkthetaxz_"+trackModule)[kentry])
+            hTrackThetaYZ.append(getattr(c,"trkthetayz_"+trackModule)[kentry])
+            hTrackMom.append(getattr(c,"trkmom_"+trackModule)[kentry])
+            hTrackLen.append(getattr(c,"trklen_"+trackModule)[kentry])
+            hTrackCosmicScore.append(getattr(c,"trkcosmicscore_tagger_"+trackModule)[kentry])
+            hTrackPIDA.append(getattr(c,"trkpidpida_"+trackModule)[kentry])
+            hTrackOrigin.append(trackOrigin)
+
+
+            # The longest track should be the muon, impose the pida cut on this track
+
+            # Take the track if it has 5 < pida < 10
+            if getattr(c,"trkpidpida_"+trackModule)[kentry] <= 5.0 or getattr(c,"trkpidpida_"+trackModule)[kentry] >= 10.0:
                 continue
 
             if getattr(c,"trklen_"+trackModule)[kentry] > longestTrackLen:
@@ -122,20 +182,10 @@ def main(argv):
                 longestTrackThetaXZ = getattr(c,"trkthetaxz_"+trackModule)[kentry]
                 longestTrackThetaYZ = getattr(c,"trkthetayz_"+trackModule)[kentry]
                 longestTrackCosmicScore = getattr(c,"trkcosmicscore_tagger_"+trackModule)[kentry]
-                #longestTrackCosmicScore = getattr(c,"trkCosmicScore_"+trackModule)[kentry]
                 longestTrackPIDA = getattr(c,"trkpidpida_"+trackModule)[kentry]
+                longestTrackOrigin = trackOrigin
                 foundLongestTrack = True
 
-            hTrackPhi.append(getattr(c,"trkphi_"+trackModule)[kentry])
-            hTrackTheta.append(getattr(c,"trktheta_"+trackModule)[kentry])
-            hTrackThetaXZ.append(getattr(c,"trkthetaxz_"+trackModule)[kentry])
-            hTrackThetaYZ.append(getattr(c,"trkthetayz_"+trackModule)[kentry])
-            hTrackMom.append(getattr(c,"trkmom_"+trackModule)[kentry])
-            hTrackLen.append(getattr(c,"trklen_"+trackModule)[kentry])
-            hTrackCosmicScore.append(getattr(c,"trkcosmicscore_tagger_"+trackModule)[kentry])
-            #hTrackCosmicScore.append(getattr(c,"trkCosmicScore_"+trackModule)[kentry])
-            hTrackPIDA.append(getattr(c,"trkpidpida_"+trackModule)[kentry])
-       
         if foundLongestTrack:
             hLongestTrackLen.append(longestTrackLen)
             hLongestTrackPhi.append(longestTrackPhi)
@@ -144,11 +194,12 @@ def main(argv):
             hLongestTrackThetaYZ.append(longestTrackThetaYZ)
             hLongestTrackCosmicScore.append(longestTrackCosmicScore)
             hLongestTrackPIDA.append(longestTrackPIDA)
+            hLongestTrackOrigin.append(longestTrackOrigin)
    
     plt.figure()
     plt.hist(hNumTracks)
     plt.xlabel(r'Number of Tracks')
-    pickle.dump(plt.gcf(),file('NumTracks.pickle','w'))
+    #pickle.dump(plt.gcf(),file('NumTracks.pickle','w'))
     plt.savefig('NumTracks.png')
 
     plt.figure()
@@ -156,7 +207,7 @@ def main(argv):
     plt.xlim([-3.14,3.14])
     plt.xlabel(r'track $\phi$')
     plt.ylabel(r'tracks/(0.0628 radians)')
-    pickle.dump(plt.gcf(),file('TrackPhi.pickle','w'))
+    #pickle.dump(plt.gcf(),file('TrackPhi.pickle','w'))
     plt.savefig('TrackPhi.png')
     
     plt.figure()
@@ -164,7 +215,7 @@ def main(argv):
     plt.xlim([-3.14,3.14])
     plt.xlabel(r'longest track $\phi$')
     plt.ylabel(r'tracks/(0.0628 radians)')
-    pickle.dump(plt.gcf(),file('LongestTrackPhi.pickle','w'))
+    #pickle.dump(plt.gcf(),file('LongestTrackPhi.pickle','w'))
     plt.savefig('LongestTrackPhi.png')
     
     plt.figure()
@@ -172,7 +223,7 @@ def main(argv):
     plt.xlim([0,3.14])
     plt.xlabel(r'track $\theta$')
     plt.ylabel(r'tracks/(0.0314 radians)')
-    pickle.dump(plt.gcf(),file('TrackTheta.pickle','w'))
+    #pickle.dump(plt.gcf(),file('TrackTheta.pickle','w'))
     plt.savefig('TrackTheta.png')
     
     plt.figure()
@@ -180,35 +231,35 @@ def main(argv):
     plt.xlim([0,3.14])
     plt.xlabel(r'longest track $\theta$')
     plt.ylabel(r'tracks/(0.0314 radians)')
-    pickle.dump(plt.gcf(),file('LongestTrackTheta.pickle','w'))
+    #pickle.dump(plt.gcf(),file('LongestTrackTheta.pickle','w'))
     plt.savefig('LongestTrackTheta.png')
     
     plt.figure()
     plt.hist(hTrackThetaXZ, bins = 100, range = (-3.14,3.14))
     plt.xlim([-3.14,3.14])
     plt.xlabel(r'track $\theta$ in the XZ plane')
-    pickle.dump(plt.gcf(),file('TrackThetaXZ.pickle','w'))
+    #pickle.dump(plt.gcf(),file('TrackThetaXZ.pickle','w'))
     plt.savefig('TrackThetaXZ.png')
     
     plt.figure()
     plt.hist(hLongestTrackThetaXZ, bins = 100, range = (-3.14,3.14))
     plt.xlim([-3.14,3.14])
     plt.xlabel(r'longest track $\theta$ in the XZ plane')
-    pickle.dump(plt.gcf(),file('LongestTrackThetaXZ.pickle','w'))
+    #pickle.dump(plt.gcf(),file('LongestTrackThetaXZ.pickle','w'))
     plt.savefig('LongestTrackThetaXZ.png')
     
     plt.figure()
     plt.hist(hTrackThetaYZ, bins = 100, range = (0,3.14))
     plt.xlim([0,3.14])
     plt.xlabel(r'track $\theta$ in the YZ plane')
-    pickle.dump(plt.gcf(),file('TrackThetaYZ.pickle','w'))
+    #pickle.dump(plt.gcf(),file('TrackThetaYZ.pickle','w'))
     plt.savefig('TrackThetaYZ.png')
     
     plt.figure()
     plt.hist(hLongestTrackThetaYZ, bins = 100, range = (0,3.14))
     plt.xlim([0,3.14])
     plt.xlabel(r'longest track $\theta$ in the YZ plane')
-    pickle.dump(plt.gcf(),file('LongestTrackThetaYZ.pickle','w'))
+    #pickle.dump(plt.gcf(),file('LongestTrackThetaYZ.pickle','w'))
     plt.savefig('LongestTrackThetaYZ.png')
     
     plt.figure()
@@ -218,7 +269,7 @@ def main(argv):
     plt.ylim([0,3.14])
     plt.xlabel(r'longest track $\phi$')
     plt.ylabel(r'longest track $\theta$')
-    pickle.dump(plt.gcf(),file('LongestTrackPhiTheta.pickle','w'))
+    #pickle.dump(plt.gcf(),file('LongestTrackPhiTheta.pickle','w'))
     plt.savefig('LongestTrackPhiTheta.png')
     
     plt.figure()
@@ -228,57 +279,70 @@ def main(argv):
     plt.ylim([0,3.14])
     plt.xlabel(r'track $\phi$')
     plt.ylabel(r'track $\theta$')
-    pickle.dump(plt.gcf(),file('TrackPhiTheta.pickle','w'))
+    #pickle.dump(plt.gcf(),file('TrackPhiTheta.pickle','w'))
     plt.savefig('TrackPhiTheta.png')
     
     plt.figure()
     plt.hist(hTrackMom, bins = 100, range = (0,1))
     plt.xlim([0,1])
-    pickle.dump(plt.gcf(),file('TrackMom.pickle','w'))
+    #pickle.dump(plt.gcf(),file('TrackMom.pickle','w'))
     plt.savefig('TrackMom.png')
     
     plt.figure()
     plt.hist(hTrackLen, bins = 100, range = (0,2000))
     plt.xlim([0,2000])
     plt.xlabel(r'track length (cm)')
-    pickle.dump(plt.gcf(),file('TrackLen.pickle','w'))
+    #pickle.dump(plt.gcf(),file('TrackLen.pickle','w'))
     plt.savefig('TrackLen.png')
    
     plt.figure()
     plt.hist(hLongestTrackLen, bins = 100, range = (0,2000))
     plt.xlim([0,2000])
     plt.xlabel(r'longest track length (cm)')
-    pickle.dump(plt.gcf(),file('LongestTrackLen.pickle','w'))
+    #pickle.dump(plt.gcf(),file('LongestTrackLen.pickle','w'))
     plt.savefig('LongestTrackLen.png')
 
     plt.figure()
     plt.hist(hTrackCosmicScore, bins = 100, range = (-1.5,1.5))
     plt.xlim([-1.5,1.5])
     plt.xlabel(r'track cosmic score')
-    pickle.dump(plt.gcf(),file('TrackCosmicScore.pickle','w'))
+    #pickle.dump(plt.gcf(),file('TrackCosmicScore.pickle','w'))
     plt.savefig('TrackCosmicScore.png')
 
     plt.figure()
     plt.hist(hLongestTrackCosmicScore, bins = 100, range = (-1.5,1.5))
     plt.xlim([-1.5,1.5])
     plt.xlabel(r'longest track cosmic score')
-    pickle.dump(plt.gcf(),file('LongestTrackCosmicScore.pickle','w'))
+    #pickle.dump(plt.gcf(),file('LongestTrackCosmicScore.pickle','w'))
     plt.savefig('LongestTrackCosmicScore.png')
 
     plt.figure()
     plt.hist(hTrackPIDA, bins = 100, range = (0.0,100.0))
     plt.xlim([0.0,100.0])
     plt.xlabel(r'track PIDA')
-    pickle.dump(plt.gcf(),file('TrackPIDA.pickle','w'))
+    #pickle.dump(plt.gcf(),file('TrackPIDA.pickle','w'))
     plt.savefig('TrackPIDA.png')
 
     plt.figure()
     plt.hist(hLongestTrackPIDA, bins = 100, range = (0.0,100.0))
     plt.xlim([0.0,100.0])
     plt.xlabel(r'longest track PIDA')
-    pickle.dump(plt.gcf(),file('LongestTrackPIDA.pickle','w'))
+    #pickle.dump(plt.gcf(),file('LongestTrackPIDA.pickle','w'))
     plt.savefig('LongestTrackPIDA.png')
 
+    plt.figure()
+    plt.hist(hTrackOrigin, bins = 100, range = (-1.5,2.5))
+    plt.xlim([-1.5,2.5])
+    plt.xlabel(r'track origin')
+    #pickle.dump(plt.gcf(),file('TrackOrigin.pickle','w'))
+    plt.savefig('TrackOrigin.png')
+
+    plt.figure()
+    plt.hist(hLongestTrackOrigin, bins = 100, range = (-1.5,2.5))
+    plt.xlim([-1.5,2.5])
+    plt.xlabel(r'longest track origin')
+    #pickle.dump(plt.gcf(),file('LongestTrackOrigin.pickle','w'))
+    plt.savefig('LongestTrackOrigin.png')
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
